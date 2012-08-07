@@ -18,8 +18,8 @@ class SizeInline(admin.TabularInline):
 				"auto_size",
 				"size_set", 
 				"aspect_ratio",
-				"create_on_request",
-				"retina",
+				#"create_on_request",
+				#"retina",
 			)
 		}),
 	)
