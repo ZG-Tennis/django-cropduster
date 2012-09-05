@@ -399,8 +399,11 @@ class Image(CachingMixin, models.Model):
 					retina_thumbnail = utils.rescale(cropped_image, retina_size.width, retina_size.height, crop=retina_size.auto_size)
 					retina_thumbnail.save(self.thumbnail_path(retina_size.slug), **IMAGE_SAVE_PARAMS)
 			
-
-
+	
+	def render(self, *args, **kwargs):
+		""" Shortcut to templatetag that render the image, rather than including the template tag """
+		from cropduster.templatetags.images import get_image
+		return get_image(self, *args, **kwargs)
 
 
 

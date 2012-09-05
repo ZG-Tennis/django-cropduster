@@ -2,8 +2,7 @@ from coffin import template
 from coffin.template.loader import get_template
 register = template.Library()
 from django.conf import settings
-from cropduster.models import Size
-from cropduster.models import AUTO_SIZE
+from cropduster.models import Size, AUTO_SIZE
 from os.path import exists
 
 CROPDUSTER_CROP_ONLOAD = getattr(settings, "CROPDUSTER_CROP_ONLOAD", True)
