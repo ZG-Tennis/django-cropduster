@@ -29,6 +29,7 @@ GENERATION_CHOICES = (
 
 RETINA_POSTFIX = "@2x"
 
+
 try:
 	from caching.base import CachingMixin, CachingManager
 except ImportError:
@@ -402,10 +403,11 @@ class Image(CachingMixin, models.Model):
 				if retina_size.width <= cropped_image.size[0] and retina_size.height <= cropped_image.size[1]:
 					retina_thumbnail = utils.rescale(cropped_image, retina_size.width, retina_size.height, crop=retina_size.auto_size)
 					retina_thumbnail.save(self.thumbnail_path(retina_size.slug), **IMAGE_SAVE_PARAMS)
-			
 
+	
+	
 	def html(self, size_name=None, template_name="image.html", retina=False, **kwargs):
-	""" Templatetag to get the HTML for an image from a cropduster image object """
+		""" Templatetag to get the HTML for an image from a cropduster image object """
 		if CROPDUSTER_CROP_ONLOAD:
 		# If set, will check for thumbnail existence
 		# if not there, will create the thumb based on predefiend crop/size settings
@@ -449,9 +451,9 @@ class Image(CachingMixin, models.Model):
 		
 		kwargs["size_name"] = size_name
 		
-		kwargs["attribution"] = image.attribution
+		kwargs["attribution"] = self.attribution
 		
-		if hasattr(image, "caption"): kwargs["alt"] = self.caption 
+		if hasattr(self, "caption"): kwargs["alt"] = self.caption 
 		
 		if "title" not in kwargs: kwargs["title"] = kwargs["alt"] 
 
@@ -460,7 +462,12 @@ class Image(CachingMixin, models.Model):
 		return tmpl.render(context)
 
 
-
+			
+# preload a map of image sizes so it doesn"t make a DB call for each templatetag use
+IMAGE_SIZE_MAP = {}
+for size in Size.objects.all():
+	IMAGE_SIZE_MAP[(size.size_set_id, size.slug)] = size
+	
 
 class CropDusterField(models.ForeignKey):
 	pass	
