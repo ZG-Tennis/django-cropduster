@@ -5,9 +5,13 @@ from cropduster import utils
 from PIL import Image as pil
 from south.modelsinspector import add_introspection_rules
 from django.core.exceptions import ValidationError
+from coffin import template
+from coffin.template.loader import get_template
 
 
 CROPDUSTER_UPLOAD_PATH = getattr(settings, "CROPDUSTER_UPLOAD_PATH", settings.MEDIA_ROOT)
+CROPDUSTER_CROP_ONLOAD = getattr(settings, "CROPDUSTER_CROP_ONLOAD", True)
+CROPDUSTER_KITTY_MODE = getattr(settings, "CROPDUSTER_KITTY_MODE", False)
 
 IMAGE_SAVE_PARAMS =  {
 	"quality" :95
@@ -400,6 +404,60 @@ class Image(CachingMixin, models.Model):
 					retina_thumbnail.save(self.thumbnail_path(retina_size.slug), **IMAGE_SAVE_PARAMS)
 			
 
+	def html(self, size_name=None, template_name="image.html", retina=False, **kwargs):
+	""" Templatetag to get the HTML for an image from a cropduster image object """
+		if CROPDUSTER_CROP_ONLOAD:
+		# If set, will check for thumbnail existence
+		# if not there, will create the thumb based on predefiend crop/size settings
+		
+			thumb_path = self.thumbnail_path(size_name)
+			if not os.path.exists(thumb_path) and os.path.exists(self.image.path):
+				try:
+					size = self.size_set.size_set.get(slug=size_name)
+				except Size.DoesNotExist:
+					return ""
+				try:
+					self.create_thumbnail(size, force_crop=True)
+				except:
+					return ""
+		
+		if retina:	
+			image_url = self.retina_thumbnail_url(size_name)
+		else:
+			image_url = self.thumbnail_url(size_name)
+			
+		
+		if not image_url:
+			return ""
+			
+		try:
+			image_size = IMAGE_SIZE_MAP[(self.size_set_id, size_name)]
+		except KeyError:
+			return ""
+	
+		# Set all the args that get passed to the template
+		
+		kwargs["image_url"] = image_url
+
+		if hasattr(image_size, "auto_size") and image_size.auto_size != AUTO_SIZE:
+			kwargs["width"] = image_size.width if hasattr(image_size, "width") else ""
+			kwargs["height"] = image_size.height if hasattr(image_size, "height") else ""
+		
+		
+		if CROPDUSTER_KITTY_MODE:
+			kwargs["image_url"] = "http://placekitten.com/%s/%s" % (kwargs["width"], kwargs["height"])
+		
+		kwargs["size_name"] = size_name
+		
+		kwargs["attribution"] = image.attribution
+		
+		if hasattr(image, "caption"): kwargs["alt"] = self.caption 
+		
+		if "title" not in kwargs: kwargs["title"] = kwargs["alt"] 
+
+		tmpl = get_template("templatetags/" + template_name)
+		context = template.Context(kwargs)
+		return tmpl.render(context)
 
 
 
