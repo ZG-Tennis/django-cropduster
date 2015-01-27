@@ -27,7 +27,7 @@ setup(
     packages=find_packages(),
     zip_safe=False,
     install_requires=[
-        "PIL",
+        "Pillow",
     ],
     include_package_data=True,
     cmdclass={"test": mytest},
