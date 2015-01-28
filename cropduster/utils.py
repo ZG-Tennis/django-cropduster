@@ -1,4 +1,4 @@
-from Pillow import Image
+from PIL import Image
 from decimal import Decimal
 
 def aspect_ratio(width, height):

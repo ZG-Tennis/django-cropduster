@@ -1,4 +1,4 @@
-
+{% load images %}
 
 <style type="text/css">
 .cropduster_thumbs img {
@@ -66,16 +66,17 @@ function toggle_delete(obj){
 
 </div>
 
-<p><a href="#" onclick="cropduster_pop('{{ attrs["id"] }}', {{ size_set.id }}{% if image %}, {{ image.id }}{% endif %});return false" class="cd_show"><img src="{{ static_url }}admin/cropduster/img/cropduster_icon_upload_select.png" alt="" /></a></p>
+
+<p><a href="#" onclick="cropduster_pop('{{ attrs.id }}', {{ size_set.id }}{% if image %}, {{ image.id }}{% endif %});return false" class="cd_show"><img src="{{ static_url }}admin/cropduster/img/cropduster_icon_upload_select.png" alt="" /></a></p>
 
 	<div class="cropduster_thumbs">
 	{% if image %}
-		{% for size in image.size_set.get_unique_ratios(created=True) %}
-		<img src="{{ image.thumbnail_url(size.slug) }}" />
+		{% for size in image.size_set.get_unique_ratios %}
+		<img src="{{ image|thumbnail_url:size }}" />
 		{% endfor %}
 	{% endif %}
 	</div>
-<div id="cropduster_input_{{ attrs["id"] }}">
+<div id="cropduster_input_{{ attrs.id }}">
 {{ input|safe }}
 
 </div>

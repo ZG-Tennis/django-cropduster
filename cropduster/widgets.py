@@ -1,5 +1,5 @@
 from django.forms import HiddenInput
-from coffin.template import Context, loader
+from django.template import Context, loader
 from django.core.urlresolvers import reverse
 from django.conf import settings
 from cropduster.models import SizeSet, Image as CropDusterImage

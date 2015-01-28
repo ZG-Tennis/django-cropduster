@@ -2,8 +2,8 @@ from django.db import models
 from django.conf import settings
 import os, copy
 from cropduster import utils
-from Pillow import Image as pil
-from south.modelsinspector import add_introspection_rules
+from PIL import Image as pil
+#from south.modelsinspector import add_introspection_rules
 from django.core.exceptions import ValidationError
 
 
@@ -411,9 +411,9 @@ class CropDusterField(models.ForeignKey):
 	pass	
 
 
-try:
-	from south.modelsinspector import add_introspection_rules
-except ImportError:
-	pass
-else:
-	add_introspection_rules([], ["^cropduster\.models\.CropDusterField"])
+#try:
+#	from south.modelsinspector import add_introspection_rules
+#except ImportError:
+#	pass
+#else:
+#	add_introspection_rules([], ["^cropduster\.models\.CropDusterField"])

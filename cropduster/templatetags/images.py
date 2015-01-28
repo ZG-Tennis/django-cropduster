@@ -1,5 +1,5 @@
-from coffin import template
-from coffin.template.loader import get_template
+from django import template
+from django.template.loader import get_template
 register = template.Library()
 from django.conf import settings
 from cropduster.models import Size
@@ -16,7 +16,7 @@ for size in Size.objects.all():
 	IMAGE_SIZE_MAP[(size.size_set_id, size.slug)] = size
 
 
-@register.object
+@register.filter
 def get_image(image, size_name=None, template_name="image.html", retina=False, **kwargs):
 	""" Templatetag to get the HTML for an image from a cropduster image object """
 
@@ -79,4 +79,11 @@ def get_image(image, size_name=None, template_name="image.html", retina=False, *
 
 	
 		
-		
+@register.filter
+def thumbnail_url(image, size):
+        return image.thumbnail_url(size.slug)
+
+@register.filter
+def pdb(variable):
+	import pdb
+	pdb.set_trace()
