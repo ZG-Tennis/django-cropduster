@@ -25,11 +25,13 @@ def get_ratio(request):
 
 # Create the form class.
 class ImageForm(ModelForm):
+	exclude = ()
 	class Meta:
 		model = CropDusterImage
 
 		
 class CropForm(ModelForm):
+	exclude = ()
 	class Meta:
 		model = Crop		
 		widgets = {

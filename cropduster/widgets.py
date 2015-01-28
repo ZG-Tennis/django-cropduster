@@ -1,10 +1,10 @@
-from django.forms import HiddenInput
+from django.forms.widgets import TextInput
 from django.template import Context, loader
 from django.core.urlresolvers import reverse
 from django.conf import settings
 from cropduster.models import SizeSet, Image as CropDusterImage
 
-class AdminCropdusterWidget(HiddenInput):
+class AdminCropdusterWidget(TextInput):
 	def __init__(self, size_set_slug, template="admin/inline.html", *args, **kwargs):
 		try:
 			self.size_set = SizeSet.objects.get(slug=size_set_slug)
@@ -12,14 +12,13 @@ class AdminCropdusterWidget(HiddenInput):
 			self.size_set = None
 		self.template = template
 		super(AdminCropdusterWidget, self).__init__(*args, **kwargs)
-		self.is_hidden = False
 	
 	def render(self, name, value, attrs=None):
 		attrs.setdefault("class", "cropduster")
 		
 		cropduster_url = reverse("cropduster-upload")
 	
-		input = super(HiddenInput, self).render(name, value, attrs)
+		input = super(TextInput, self).render(name, value, attrs)
 		
 		image = None
 		if value:
