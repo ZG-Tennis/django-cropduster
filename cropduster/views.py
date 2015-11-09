@@ -25,20 +25,20 @@ def get_ratio(request):
 
 # Create the form class.
 class ImageForm(ModelForm):
-	exclude = ()
 	class Meta:
 		model = CropDusterImage
+        fields = '__all__'
 
 		
 class CropForm(ModelForm):
-	exclude = ()
 	class Meta:
 		model = Crop		
 		widgets = {
 			"image": TextInput(),
 		}
+        fields = '__all__'
 
-	
+
 @csrf_exempt
 def upload(request):
 	
