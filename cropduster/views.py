@@ -17,33 +17,34 @@ import json
 BROWSER_WIDTH = 800
 CROPDUSTER_EXIF_DATA = getattr(settings, "CROPDUSTER_EXIF_DATA", True)
 
-def get_ratio(request): 
-	return HttpResponse(json.dumps(
-		[u"%s" % aspect_ratio(request.GET["width"], request.GET["height"])]
-	))
+
+def get_ratio(request):
+    return HttpResponse(json.dumps(
+        [u"%s" % aspect_ratio(request.GET["width"], request.GET["height"])]
+    ))
 
 
 # Create the form class.
 class ImageForm(ModelForm):
-	class Meta:
-		model = CropDusterImage
+    class Meta:
+        model = CropDusterImage
         fields = '__all__'
 
-		
+
 class CropForm(ModelForm):
-	class Meta:
-		model = Crop		
-		widgets = {
-			"image": TextInput(),
-		}
+    class Meta:
+        model = Crop
+        widgets = {
+            "image": TextInput(),
+        }
         fields = '__all__'
 
 
 @csrf_exempt
 def upload(request):
-	
+
 	size_set = SizeSet.objects.get(id=request.GET["size_set"])
-	
+
 	# Get the current aspect ratio
 	if "aspect_ratio_id" in request.POST:
 		aspect_ratio_id = int(request.POST["aspect_ratio_id"])
