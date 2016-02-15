@@ -3,6 +3,7 @@
 
 import os
 import io
+
 from django.http import HttpResponse
 from django.shortcuts import render_to_response
 from django.template import RequestContext
@@ -33,6 +34,15 @@ class ImageForm(ModelForm):
     class Meta:
         model = CropDusterImage
         fields = '__all__'
+
+    def __init__(self, *args, **kwargs):
+        """
+        * Initializes the form
+        * Deactivates the image size validation
+        """
+        super(self.__class__, self).__init__(*args, **kwargs)
+        if self.instance and self.instance.id:
+            self.instance.validate_image_size = False
 
 
 class CropForm(ModelForm):
@@ -171,8 +181,28 @@ def upload(request):
     # If theres more cropping to be done or its the first frame,
     # show the upload/crop form
     if (size and size.id) or request.method != "POST":
+        sizes_modified = False
         crop_w = crop.crop_w or size.width
         crop_h = crop.crop_h or size.height
+        min_w = size.width
+        min_h = size.height
+        image_width, image_height = image.get_width_height()
+        if image_width > 0 and image_height > 0:
+            if image_width <= size.width or image_height <= size.height:
+                # calculating new values holding width/height ratio
+                dimentions_fixed = False
+                height_buffer = image_height - 1
+                while (not dimentions_fixed):
+                    crop_h = int(round(height_buffer))
+                    crop_w = int(round(size.aspect_ratio * crop_h))
+                    if crop_w < image_width - 1:
+                        dimentions_fixed = True
+                    else:
+                        height_buffer *= 0.9
+                # calulating new min width and height values
+                min_h = int(round(crop_h/10))
+                min_w = int(round(size.aspect_ratio * min_h))
+                sizes_modified = True
 
         # Combine errors from both forms, eliminate duplicates
         errors = dict(crop_formset.errors)
@@ -200,9 +230,12 @@ def upload(request):
             "image": image,
             "image_element_id": request.GET["image_element_id"],
             "image_exists": image.image and os.path.exists(image.image.path),
-            "min_w": size.width,
-            "min_h": size.height,
+            "min_w": min_w,
+            "min_h": min_h,
+            "size_width": size.width,
+            "size_height": size.height,
             "static_url": settings.STATIC_URL,
+            "sizes_modified": sizes_modified,
         }
 
         context = RequestContext(request, context)

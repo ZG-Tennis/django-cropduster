@@ -345,6 +345,14 @@ class Image(CachingMixin, models.Model):
 						raise ValidationError("Uploaded image (%s x %s) is smaller than a required thumbnail size: %s" % (pil_image.size[0], pil_image.size[1], size))
 						
 		return super(Image, self).clean()
+
+	def get_width_height(self):
+	    """ Returns a tuple with the image with and height """
+	    try:
+	        pil_image = pil.open(self.image)
+	    except:
+	        return 0, 0
+	    return pil_image.size
 			
 	def create_thumbnail(self, size, force_crop=False):
 		""" Creates a thumbnail for an image at the specified size """
