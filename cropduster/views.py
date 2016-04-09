@@ -234,6 +234,7 @@ def upload(request):
             "min_h": min_h,
             "size_width": size.width,
             "size_height": size.height,
+            "size_name": size.name,
             "static_url": settings.STATIC_URL,
             "sizes_modified": sizes_modified,
         }

@@ -31,9 +31,9 @@
 {% block content %}
 <h1 id="step-header">
     {% if sizes_modified %}
-        Upload, Crop, and Generate Thumbnails {% if size_width or size_height %} <br/>Size ({{ size_width }} x {{ size_height }}){% endif %} {% if min_w or min_h %} <br/>Min crop size <span style="text-decoration: line-through;">({{ size_width }} x {{ size_height }})</span> ({{ min_w }} x {{ min_h }}){% endif %}
+        Upload, Crop, and Generate Thumbnails {% if size_width or size_height %} <br/>{{ size_name }} - Size ({{ size_width }} x {{ size_height }}){% endif %} {% if min_w or min_h %} <br/>Min crop size <span style="text-decoration: line-through;">({{ size_width }} x {{ size_height }})</span> ({{ min_w }} x {{ min_h }}){% endif %}
     {% else %}
-        Upload, Crop, and Generate Thumbnails {% if size_width or size_height %} <br/> Size ({{ size_width }} x {{ size_height }}){% endif %} {% if min_w or min_h %} <br/> Min Crop size ({{ min_w }} x {{ min_h }}){% endif %}
+        Upload, Crop, and Generate Thumbnails {% if size_width or size_height %} <br/>{{ size_name }} - Size ({{ size_width }} x {{ size_height }}){% endif %} {% if min_w or min_h %} <br/> Min Crop size ({{ min_w }} x {{ min_h }}){% endif %}
     {% endif %}
 </h1>
 <div id="content-main">
