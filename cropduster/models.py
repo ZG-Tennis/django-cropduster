@@ -61,11 +61,11 @@ class SizeManager(CachingManager):
         """ Gets the largest image of a certain ratio in this size set """
 
         try:
-            aspect_ratio = self.get_query_set().filter(size_set=size_set, auto_size=MANUALLY_CROP).values_list(
+            aspect_ratio = self.get_queryset().filter(size_set=size_set, auto_size=MANUALLY_CROP).values_list(
                 'aspect_ratio', flat=True).distinct().order_by('-aspect_ratio')[aspect_ratio_id]
 
             # get the largest size with this aspect ratio
-            return self.get_query_set().filter(
+            return self.get_queryset().filter(
                 size_set=size_set, aspect_ratio=aspect_ratio, auto_size=MANUALLY_CROP).order_by("-width")[0]
         except IndexError:
             return None
