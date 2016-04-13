@@ -14,11 +14,11 @@ from optparse import make_option
 
 from django.db.models.base import ModelBase
 from django.core.management.base import BaseCommand, CommandError
+from PIL import Image
 
 from cropduster.models import Image as CropDusterImage,CropDusterField as CDF
 from cropduster.utils import create_cropped_image, rescale
 import apputils
-import Image
 
 def to_CE(f, *args, **kwargs):
     """
