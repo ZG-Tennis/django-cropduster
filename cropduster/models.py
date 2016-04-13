@@ -361,7 +361,7 @@ class Image(CachingMixin, models.Model):
                     crop.crop_w,
                     crop.crop_h
                 )
-            except Crop.DoesNotExist:
+            except (Crop.DoesNotExist, IndexError):
                 # auto-crop if no crop is defined
                 cropped_image = pil.open(self.image.path)
         else:
