@@ -1,31 +1,39 @@
-#Place in cropduster/management/commands/regenerate_thumbs.py.
+# -*- coding: utf-8 -*-
+""" cropduster management commands regenerate_thumbs.py """
+
+# Place in cropduster/management/commands/regenerate_thumbs.py.
 # Afterwards, the command can be run using:
 # manage.py regenerate_thumbs
 #
 # Search for 'changeme' for lines that should be modified
 
+import cStringIO
 import sys
 import os
 import logging
-import inspect
 import traceback
+import urllib2
+
 from collections import namedtuple
 from optparse import make_option
 
-from django.db.models.base import ModelBase
+from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 from PIL import Image
+from s3utils import S3utils
 
-from cropduster.models import Image as CropDusterImage,CropDusterField as CDF
-from cropduster.utils import create_cropped_image, rescale
+from cropduster.constants import IMAGE_SAVE_PARAMS
+from cropduster.models import Image as CropDusterImage
+from cropduster.utils import rescale, url_exists, is_url
 import apputils
+
 
 def to_CE(f, *args, **kwargs):
     """
     Simply re-raises any error as a CommandError.
-    
+
     @param f: function to call
-    @type  f: callable(f) 
+    @type  f: callable(f)
 
     @return: f(*args, **kwargs)
     @rtype: object
@@ -35,7 +43,8 @@ def to_CE(f, *args, **kwargs):
     except Exception, e:
         sys.stderr.write(traceback.format_exc(e))
         raise CommandError('Error: %s(%s)' % (type(e), e))
- 
+
+
 class PrettyError(object):
     def __init__(self, msg):
         self.msg = msg
@@ -53,65 +62,77 @@ class PrettyError(object):
 
 Size = namedtuple('Size', ('name', 'path', 'crop', 'width', 'height'))
 
+
 class Command(BaseCommand):
     args = "app_name[:model[.field]][, ...]"
     help = "Regenerates cropduster thumbnails for an entire "\
            "app or specific model and/or field."
 
     option_list = BaseCommand.option_list + (
-        make_option('--force',
-                    action  = "store_true",
-                    dest    = "force",
-                    default = False,
-                    help    = "Resizes all images regardless of whether or not they already exist."),
-
-        make_option('--query_set',
-                    dest    = "query_set",
-                    default = "all()",
-                    help    = "Queryset to use.  Default uses all models."),
-
-        make_option('--stretch',
-                    dest    = 'stretch',
-                    action  = "store_true",
-                    default = False,
-                    help    = "Indicates whether to resize an image if size is larger than original.  Default is False."),
-
-        make_option('--log_file',
-                    dest='logfile',
-                    default = 'regen_thumbs.out',
-                    help="Location of the log file.  Default regen_thumbs.out"),
-
-        make_option('--log_level',
-                    dest='loglevel',
-                    default = 'INFO',
-                    help="One of ERROR, INFO, DEBUG.  Default is INFO"),
-
-        make_option('--stdout',
-                    dest='stdout',
-                    action="store_true",
-                    default=False,
-                    help="Prints log messages to stdout as well as log.  Default False"),
-
-        make_option('--processes',
-                    dest='procs',
-                    type="int",
-                    default=1,
-                    help="Indicates how many procs to use for converting images. Default is 1")
+        make_option(
+            '--force',
+            action="store_true",
+            dest="force",
+            default=False,
+            help="Resizes all images regardless of whether or not they "
+            "already exist."
+        ),
+        make_option(
+            '--query_set',
+            dest="query_set",
+            default="all()",
+            help="Queryset to use.  Default uses all models."
+        ),
+        make_option(
+            '--stretch',
+            dest='stretch',
+            action="store_true",
+            default=False,
+            help="Indicates whether to resize an image if size is larger "
+            "than original.  Default is False."
+        ),
+        make_option(
+            '--log_file',
+            dest='logfile',
+            default='regen_thumbs.out',
+            help="Location of the log file.  Default regen_thumbs.out"
+        ),
+        make_option(
+            '--log_level',
+            dest='loglevel',
+            default='INFO',
+            help="One of ERROR, INFO, DEBUG.  Default is INFO"
+        ),
+        make_option(
+            '--stdout',
+            dest='stdout',
+            action="store_true",
+            default=False,
+            help="Prints log messages to stdout as well as log.  Default False"
+        ),
+        make_option(
+            '--processes',
+            dest='procs',
+            type="int",
+            default=1,
+            help="Indicates how many procs to use for converting images. "
+            "Default is 1"
+        )
     )
-    
+
     IMG_TYPE_PARAMS = {
         'JPEG': dict(quality=95)
     }
-    
+
     def get_queryset(self, model, query_str):
         """
         Gets the query set from the provided model based on the user's filters.
 
         @param model: Django Model to query
-        @type  model: Class 
-        
+        @type  model: Class
+
         @param query_str: Filter query to retrieve objects with
-        @type  query_str: "filter string" 
+        @type  query_str: "filter string"
 
         @return: QuerySet for the given model.
         @rtype:  <iterable of object>
@@ -125,51 +146,84 @@ class Command(BaseCommand):
 
         @param image: Opened original image
         @type  image: PIL.Image
-        
+
         @param sizes: Set of sizes to create.
         @type  sizes: [Size1, ...]
-        
-        @param force: Whether or not to recreate a thumbnail if it already exists.
+
+        @param force: Whether or not to recreate a thumbnail if it already
+            exists.
         @type  force: bool
 
-        @return: 
-        @rtype: 
+        @return:
+        @rtype:
         """
         img_params = (self.IMG_TYPE_PARAMS.get(image.format) or {}).copy()
         for size in sizes:
-            
-            logging.debug('Converting image to size `%s` (%s x %s)' % (size.name,
-                                                                       size.width,
-                                                                       size.height))
+            logging.debug('Converting image to size `%s` (%s x %s)' % (
+                size.name, size.width, size.height))
+            url = is_url(size.path)
             # Do we need to recreate the file?
-            if not force and os.path.isfile(size.path) and os.stat(size.path).st_size > 0:
+            if url:
+                file_exists = url_exists(size.path)
+            else:
+                file_exists = os.path.isfile(size.path) and \
+                    os.stat(size.path).st_size > 0
+
+            if not force and file_exists:
                 logging.debug(' - Image `%s` exists, skipping...' % size.name)
                 continue
 
-            folder, _basename = os.path.split(size.path)
-            if not os.path.isdir(folder):
-                logging.debug(' - Directory %s does not exist.  Creating...' % folder)
-                os.makedirs(folder)
+            if not url:
+                folder, _basename = os.path.split(size.path)
+                if not os.path.isdir(folder):
+                    logging.debug(
+                        ' - Directory %s does not exist.  Creating...' % folder
+                    )
+                    os.makedirs(folder)
 
-            try:
-                # In place scaling, so we need to use a copy of the image.
-                thumbnail = rescale(image.copy(),
-                                    size.width,
-                                    size.height,
-                                    crop=size.crop)
+                try:
+                    # In place scaling, so we need to use a copy of the image.
+                    thumbnail = rescale(image.copy(),
+                                        size.width,
+                                        size.height,
+                                        crop=size.crop)
 
-                tmp_path = size.path + '.tmp'
+                    tmp_path = size.path + '.tmp'
+                    thumbnail.save(tmp_path, image.format, **img_params)
 
-                thumbnail.save(tmp_path, image.format, **img_params)
-
-            # No idea what this can throw, so catch them all
-            except Exception, e:
-                logging.exception('Error saving thumbnail to %s' % tmp_path)
-                raise SystemExit('Exiting...')
-                
+                    # No idea what this can throw, so catch them all
+                except Exception, e:
+                    logging.exception(
+                        'Error saving thumbnail to %s' % tmp_path)
+                    logging.exception('{}'.format(e))
+                    raise SystemExit('Exiting...')
+                else:
+                    os.rename(tmp_path, size.path)
             else:
-                os.rename(tmp_path, size.path)
-            
+                go_s3 = S3utils()
+                img_string = cStringIO.StringIO()
+                thumbnail = rescale(
+                    image.copy(), size.width, size.height, crop=size.crop)
+                output_path, crop_name = os.path.split(size.path)
+                folder = output_path.replace(settings.MEDIA_URL, '')
+                output_path = os.path.join(
+                    settings.MEDIAFILES_LOCATION, folder)
+                thumbnail.save(img_string, "JPEG", **IMAGE_SAVE_PARAMS)
+                # setting the content type manually, otherwise it will be saved
+                # as content-type: application/octet-stream
+                go_s3.AWS_HEADERS['Content-Type'] = 'image/jpeg'
+                logging.info("Ready to upload {} | {} | {}".format(
+                    img_string, crop_name, output_path)
+                )
+                result = go_s3.cp_from_string(
+                    img_string, crop_name, output_path)
+                if result:
+                    logging.exception(
+                        "Error saving thumbnail into s3 bucket. Error: {}"
+                        .format(result)
+                    )
+                    raise SystemExit('Exiting...')
+
     def get_sizes(self, cd_image, stretch):
         """
         Extracts sizes for an image.
@@ -177,7 +231,7 @@ class Command(BaseCommand):
         @param cd_image: Cropduster image to use
         @type  cd_image: CropDusterImage
 
-        @param stretch: Indicates whether or not we want to include sizes that 
+        @param stretch: Indicates whether or not we want to include sizes that
                         would stretch the original image.
         @type  stretch: bool
 
@@ -189,43 +243,46 @@ class Command(BaseCommand):
         for size in cd_image.size_set.size_set.all():
 
             # Filter out thumbnail sizes which are larger than the original
-            if stretch or (orig_width >= size.width and 
+            if stretch or (orig_width >= size.width and
                            orig_height >= size.height):
 
-                sizes.append( Size(size.slug,
-                                   cd_image.thumbnail_path(size),
-                                   size.auto_size,
-                                   size.width,
-                                   size.height) )
+                sizes.append(Size(
+                    size.slug,
+                    cd_image.thumbnail_path(size.slug),
+                    size.auto_size,
+                    size.width,
+                    size.height
+                ))
         return set(sizes)
-
 
     def setup_logging(self, options):
         """
         Sets up logging details.
         """
-        logging.basicConfig(filename=options['logfile'],
-                            level = getattr(logging, options['loglevel'].upper()),
-                            format="%(asctime)s %(levelname)s %(message)s")
+        logging.basicConfig(
+            filename=options['logfile'],
+            level=getattr(logging, options['loglevel'].upper()),
+            format="%(asctime)s %(levelname)s %(message)s")
 
         # Add stdout to logging, useful for short query sets.
         if 'stdout' in options:
             formatter = logging.root.handlers[0].formatter
             sh = logging.StreamHandler(sys.stdout)
             sh.formatter = formatter
-            logging.root.addHandler( sh )
-    
+            logging.root.addHandler(sh)
+
     def get_images(self, apps, query_set, stretch):
         """
-        Returns all original images and sizes for the given apps and query sets.
-        
+        Returns all original images and sizes for the given apps and
+        query sets.
+
         @param apps: Set of django apps to resize.
         @type  apps: ["app:[model[.field]]", ..]
-        
+
         @param query_set: query_set to retrieve objects with.
         @type  query_set: str.
-        
-        @param stretch: Whether or not to include sizes with dimensions larger 
+
+        @param stretch: Whether or not to include sizes with dimensions larger
                         than the original image size.
         @type  stretch: bool
 
@@ -235,7 +292,8 @@ class Command(BaseCommand):
         # Figures out the models and cropduster fields on them
         for model, field_names in to_CE(apputils.resolve_apps, apps):
 
-            logging.info("Processing model %s with fields %s" % (model, field_names))
+            logging.info(
+                "Processing model %s with fields %s" % (model, field_names))
 
             # Returns the queryset for each model
             query = self.get_queryset(model, query_set)
@@ -243,32 +301,43 @@ class Command(BaseCommand):
             for obj in query:
 
                 for field_name in field_names:
-
-                    # Sanity check; we really should have a cropduster image here.
+                    # Sanity check;
+                    # we really should have a cropduster image here.
                     cd_image = getattr(obj, field_name)
-                    if not (cd_image and isinstance(cd_image, CropDusterImage)):
+                    if not (cd_image and isinstance(
+                            cd_image, CropDusterImage)):
                         continue
 
-                    file_name = cd_image.image.path
+                    file_name = cd_image.path
                     logging.info("Processing image %s" % file_name)
                     try:
-                        image = Image.open(file_name)
-                    except IOError:
+                        image_url = urllib2.urlopen(file_name)
+                    except urllib2.HTTPError:
                         logging.warning('Could not open image %s' % file_name)
                         continue
+                    except ValueError:
+                        try:
+                            image = Image.open(file_name)
+                        except IOError:
+                            logging.warning(
+                                'Could not open image %s' % file_name)
+                            continue
+                    else:
+                        image_file = cStringIO.StringIO(image_url.read())
+                        image = Image.open(image_file)
 
                     sizes = self.get_sizes(cd_image, stretch)
-                    #self.resize_image(image, sizes, options['force'])
+                    # self.resize_image(image, sizes, options['force'])
                     yield image, sizes
 
-    def wait_all(self, proc_list):
+    def wait_all(self):
         """
         Wait for all child procs to finish.
         """
         while True:
             try:
                 os.wait()
-            except OSError,e:
+            except OSError, e:
                 # Excellent, no longer waiting on a child proc
                 if e.errno == 10:
                     return
@@ -282,41 +351,41 @@ class Command(BaseCommand):
         @param proc_list: Set of child procs.
         @type  proc_list: set(int, ...)
 
-        @return: 
-        @rtype: 
+        @return:
+        @rtype:
         """
         pid, code = os.wait()
         proc_list.remove(pid)
         # If an error
         if code > 0:
-            self.wait_all(proc_list)
+            self.wait_all()
             raise OSError('Process %i died with %i' % (pid, code))
 
     def resize_parallel(self, images, force, total_procs):
         """
-        Resizes images in parallel.  
-        
-        Why not use multiprocessing?  First reason is that we don't care 
-        about return values, which makes the synchronization for Pool objects 
+        Resizes images in parallel.
+
+        Why not use multiprocessing?  First reason is that we don't care
+        about return values, which makes the synchronization for Pool objects
         more than we need.
 
         Secondly, Process() has issues with KeyboardInterrupt exceptions,
-        which is a bummer when testing. Further, we never know which Process 
-        finishes first without using os.wait, which at that point we have 
+        which is a bummer when testing. Further, we never know which Process
+        finishes first without using os.wait, which at that point we have
         what we have below.  The other option would be to loop through each
         process, calling its join() method with a timeout, which  basically
         turns the parent process into a spin lock.
 
         Thirdly, we want to throw away our process when we are done with each
-        image.  Forking is cheap due to copy-on-write, and this keeps the 
+        image.  Forking is cheap due to copy-on-write, and this keeps the
         memory consumption down.
 
         @param images: Iterator yield images with their size set.
         @type  images: ((image, sizes), ...]
-        
+
         @param force: Whether or not resize images which already exist.
         @type  force: bool
-        
+
         @param total_procs: Total number of processes to use.
         @type  total_procs: positive int
         """
@@ -325,7 +394,7 @@ class Command(BaseCommand):
             for image, size in images:
                 if len(proc_list) == total_procs:
                     self.wait_one(proc_list)
-           
+
                 pid = os.fork()
                 if pid:
                     proc_list.add(pid)
@@ -348,12 +417,11 @@ class Command(BaseCommand):
         Resolves out the models and images for regenerating thumbnails and
         then resolves them.
         """
-        
         self.setup_logging(options)
 
         # Get all images
-        images = self.get_images(apps, options['query_set'], options['stretch'])
+        images = self.get_images(
+            apps, options['query_set'], options['stretch'])
 
         # Go to town on the images.
         self.resize_parallel(images, options['force'], options['procs'])
-

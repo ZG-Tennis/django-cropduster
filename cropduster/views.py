@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 """ cropduster's views """
 
-import os
 import io
 
 from django.http import HttpResponse
@@ -11,16 +10,13 @@ from django.forms import TextInput
 from django.views.decorators.csrf import csrf_exempt
 from django.forms import ModelForm
 from django.conf import settings
-
-from cropduster.models import Image as CropDusterImage, Crop, Size, SizeSet
-from cropduster.exif import process_file
-from cropduster.utils import aspect_ratio
-
 import json
 
-
-BROWSER_WIDTH = 800
-CROPDUSTER_EXIF_DATA = getattr(settings, "CROPDUSTER_EXIF_DATA", True)
+from cropduster.constants import BROWSER_WIDTH
+from cropduster.exif import process_file
+from cropduster.models import Image as CropDusterImage, Crop, Size, SizeSet
+from cropduster.settings import CROPDUSTER_EXIF_DATA
+from cropduster.utils import aspect_ratio, path_exists
 
 
 def get_ratio(request):
@@ -216,6 +212,11 @@ def upload(request):
                 string = error[1].as_text()
             all_errors.append(string)
 
+        if image.image:
+            image_exists = path_exists(image.path)
+        else:
+            image_exists = False
+
         context = {
             "aspect_ratio": size.aspect_ratio,
             "aspect_ratio_id": aspect_ratio_id,
@@ -229,7 +230,7 @@ def upload(request):
             "formset": formset,
             "image": image,
             "image_element_id": request.GET["image_element_id"],
-            "image_exists": image.image and os.path.exists(image.image.path),
+            "image_exists": image_exists,
             "min_w": min_w,
             "min_h": min_h,
             "size_width": size.width,

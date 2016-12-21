@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 
+import os
+
 try:
     from setuptools import setup, find_packages
     from setuptools.command.test import test
@@ -17,13 +19,15 @@ class mytest(test):
         # Upgrade().run(dist=True)
         # test.run(self, *args, **kwargs)
 
+os.system('pip install git+https://github.com/giussepi/s3utils')
+
 setup(
     name="django-cropduster",
-    version="1",
+    version="1.1.0",
     author="Llewellyn Hinkes",
     author_email="ortsed@gmail.com",
     url="http://github.com/ortsed/cropduster",
-    description = "Image uploader and cropping tool",
+    description="Image uploader and cropping tool",
     packages=find_packages(),
     zip_safe=False,
     install_requires=[
