@@ -15,7 +15,8 @@ from s3utils import S3utils
 from cropduster import utils
 from cropduster.constants import IMAGE_SAVE_PARAMS, MANUALLY_CROP, AUTO_CROP, \
     AUTO_SIZE, GENERATION_CHOICES, RETINA_POSTFIX
-from cropduster.settings import CROPDUSTER_UPLOAD_PATH
+from cropduster.settings import CROPDUSTER_UPLOAD_PATH, \
+    CROPDUSTER_RENAME_IMAGES
 
 
 class CachingMixin(object):
@@ -206,7 +207,10 @@ class Image(CachingMixin, models.Model):
     validate_image_size = True
 
     image = models.ImageField(
-        upload_to=CROPDUSTER_UPLOAD_PATH + "%Y/%m/%d",
+        upload_to=utils.UploadToPathAndRename(
+            CROPDUSTER_UPLOAD_PATH + "%Y/%m/%d",
+            CROPDUSTER_RENAME_IMAGES
+        ),
         max_length=255,
         db_index=True
     )

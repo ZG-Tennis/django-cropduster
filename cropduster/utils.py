@@ -7,6 +7,10 @@ import urllib2
 
 from PIL import Image
 from decimal import Decimal
+from uuid import uuid4
+
+from django.utils.timezone import datetime
+from django.utils.deconstruct import deconstructible
 
 
 def aspect_ratio(width, height):
@@ -131,3 +135,35 @@ def url_exists(path):
         return False
     else:
         return True
+
+
+@deconstructible
+class UploadToPathAndRename(object):
+    """
+    Resolves the file upload path and replaces the filename with a
+    nandom one, if set to do that replacement.
+    Usage:
+        models.ImageField(
+            upload_to=UploadToPathAndRename(
+                'some_path/%Y/%m/%d',
+                 rename=False
+            )
+        )
+    """
+
+    def __init__(self, sub_path, rename=True):
+        """ initializes the object instance """
+        self.sub_path = sub_path
+        self.rename = rename
+
+    def resolve_sub_path(self):
+        """ resolves and returns the sub_path """
+        now = datetime.now()
+        return now.strftime(self.sub_path)
+
+    def __call__(self, instance, filename):
+        """ returns the file path """
+        ext = filename.split('.')[-1]
+        if self.rename:
+            filename = '{}.{}'.format(uuid4().hex, ext)
+        return os.path.join(self.resolve_sub_path(), filename)
