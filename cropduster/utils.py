@@ -84,15 +84,23 @@ def create_cropped_image(path=None, x=0, y=0, width=0, height=0):
     Crop image given a starting (x, y) position and a width and height
     of the cropped area
     """
-
     if path is None:
         raise ValueError("A path must be specified")
+    img = None
+
     try:
         img = Image.open(path)
     except IOError:
-        img_file = cStringIO.StringIO(urllib2.urlopen(path).read())
-        img = Image.open(img_file)
-    finally:
+        try:
+            img_file = cStringIO.StringIO(urllib2.urlopen(path).read())
+        except Exception as e:
+            raise e
+        else:
+            img = Image.open(img_file)
+    except Exception as e:
+        raise e
+
+    if img:
         img.copy()
         img.load()
         img = img.crop((x, y, x + width, y + height))
