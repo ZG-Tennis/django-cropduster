@@ -23,7 +23,7 @@ os.system('pip install git+https://github.com/giussepi/s3utils')
 
 setup(
     name="django-cropduster",
-    version="1.2.2",
+    version="1.2.3",
     author="Llewellyn Hinkes",
     author_email="ortsed@gmail.com",
     url="http://github.com/ortsed/cropduster",
