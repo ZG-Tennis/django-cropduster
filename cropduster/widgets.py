@@ -36,12 +36,12 @@ class AdminCropdusterWidget(TextInput):
                 pass
 
         template = loader.get_template(self.template)
-        context = Context({
+        context = {
             "image": image,
             "size_set": self.size_set,
             "static_url": settings.STATIC_URL,
             "cropduster_url": cropduster_url,
             "input": input,
             "attrs": attrs,
-        })
+        }
         return template.render(context)
