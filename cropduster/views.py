@@ -4,8 +4,7 @@
 import io
 
 from django.http import HttpResponse
-from django.shortcuts import render_to_response
-from django.template import RequestContext
+from django.shortcuts import render
 from django.forms import TextInput
 from django.views.decorators.csrf import csrf_exempt
 from django.forms import ModelForm
@@ -120,15 +119,13 @@ def upload(request):
             else:
                 # Invalid upload return form
                 errors = formset.errors.values()[0]
-                context = {
+                return render(request, "admin/upload.html", {
                     "aspect_ratio_id": 0,
                     "errors": errors,
                     "formset": formset,
                     "image_element_id": request.GET["image_element_id"],
                     "static_url": settings.STATIC_URL,
-                }
-                context = RequestContext(request, context)
-                return render_to_response("admin/upload.html", context)
+                })
 
         else:
             # If its the first frame, get the image formset and
@@ -217,7 +214,7 @@ def upload(request):
         else:
             image_exists = False
 
-        context = {
+        return render(request, "admin/upload.html", {
             "aspect_ratio": size.aspect_ratio,
             "aspect_ratio_id": aspect_ratio_id,
             "browser_width": BROWSER_WIDTH,
@@ -238,10 +235,7 @@ def upload(request):
             "size_name": size.name,
             "static_url": settings.STATIC_URL,
             "sizes_modified": sizes_modified,
-        }
-
-        context = RequestContext(request, context)
-        return render_to_response("admin/upload.html", context)
+        })
 
     # No more cropping to be done, close out
     else:
@@ -250,12 +244,9 @@ def upload(request):
             image.size_set.get_unique_ratios()
         ]
 
-        context = {
+        return render(request, "admin/complete.html", {
             "image": image,
             "image_thumbs": image_thumbs,
             "image_element_id": request.GET["image_element_id"],
             "static_url": settings.STATIC_URL,
-        }
-
-        context = RequestContext(request, context)
-        return render_to_response("admin/complete.html", context)
+        })
