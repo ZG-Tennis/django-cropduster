@@ -141,10 +141,10 @@ def upload(request):
             # If there's no cropping to be done, then just complete the process
             if size.id:
                 # Lets save the crop
-                data = request.POST.copy()
-                data['size'] = size.id
-                data['image'] = image.id
-                crop_formset = CropForm(data, instance=crop)
+                request.POST._mutable = True
+                request.POST['size'] = size.id
+                request.POST['image'] = image.id
+                crop_formset = CropForm(request.POST, instance=crop)
 
                 if crop_formset.is_valid():
                     crop = crop_formset.save()
